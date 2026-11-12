@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "scheduler.h"
 
 #define COM1     0x3F8
 #define LINE_MAX 128
@@ -55,6 +56,9 @@ static void cmd_clear(int argc, char **argv);
 static void cmd_about(int argc, char **argv);
 static void cmd_echo(int argc, char **argv);
 static void cmd_version(int argc, char **argv);
+static void cmd_ps(int argc, char **argv);
+static void cmd_quantum(int argc, char **argv);
+static void cmd_schedtest(int argc, char **argv);
 
 static const cmd_t cmds[] = {
     { "help",    "tampilkan daftar perintah", cmd_help    },
@@ -62,6 +66,9 @@ static const cmd_t cmds[] = {
     { "about",   "tentang A6 OS",             cmd_about   },
     { "echo",    "cetak teks",                cmd_echo    },
     { "version", "versi OS",                  cmd_version },
+    { "ps",        "daftar thread dan statusnya", cmd_ps },
+    { "quantum",   "lihat/ubah quantum: quantum [tick]", cmd_quantum },
+    { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
@@ -93,6 +100,29 @@ static void cmd_echo(int argc, char **argv) {
 static void cmd_version(int argc, char **argv) {
     (void)argc; (void)argv;
     console_puts("A6 OS v" OS_VERSION "\n");
+}
+
+static void cmd_ps(int argc, char **argv) {
+    (void)argc; (void)argv;
+    scheduler_dump();
+}
+static void cmd_quantum(int argc, char **argv) {
+    if (argc >= 2) {
+        uint32_t n = 0;
+        for (const char *p = argv[1]; *p; p++) {
+            if (*p < '0' || *p > '9') { kprintf("Pakai: quantum <tick>\n"); return; }
+            n = n * 10 + (uint32_t)(*p - '0');
+            if (n > 1000) { kprintf("Maksimum 1000 tick\n"); return; }
+        }
+        scheduler_set_quantum(n);
+    }
+    kprintf("Quantum: %u tick = %u ms\n", scheduler_get_quantum(),
+            scheduler_get_quantum() * 1000 / TIMER_HZ);
+}
+static void cmd_schedtest(int argc, char **argv) {
+    (void)argc; (void)argv;
+    sched_demo_start();
+    kprintf("Thread task_A dan task_B dibuat. Ketik 'ps' untuk melihat status.\n");
 }
 
 /* cari perintah di tabel lalu jalankan */
