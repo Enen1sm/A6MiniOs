@@ -66,9 +66,11 @@ void console_status_bar(const char *text) {
 }
 
 void console_putc(char c) {
+    uint32_t fl = irq_save();   /* cegah output dua thread saling menimpa saat preempt */
     vga_putc(c);
     if (c == '\b') { serial_putc('\b'); serial_putc(' '); serial_putc('\b'); }
     else           { serial_putc(c); }
+    irq_restore(fl);
 }
 
 void console_puts(const char *s) { while (*s) console_putc(*s++); }
