@@ -54,12 +54,6 @@ void scheduler_set_quantum(uint32_t ticks) {
     time_quantum = ticks;              /* berlaku mulai giliran berikutnya */
 }
 uint32_t scheduler_get_quantum(void)    { return time_quantum; }
-
-/* Versi milidetik: dikonversi ke tick (dibulatkan ke atas, minimal 1 tick). */
-void scheduler_set_quantum_ms(uint32_t ms) {
-    scheduler_set_quantum((ms * TIMER_HZ + 999) / 1000);
-}
-uint32_t scheduler_get_quantum_ms(void) { return time_quantum * 1000 / TIMER_HZ; }
 uint32_t scheduler_total_switches(void) { return total_switches; }
 
 /* ---- Manajemen thread ---- */
