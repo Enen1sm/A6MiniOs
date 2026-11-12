@@ -14,7 +14,7 @@ typedef struct { const char *name; int status; } stage_t;
 static const stage_t stages[] = {
     { "Bootstrapping & CLI Kernel",   ST_WORK },
     { "Pengelolaan Proses & Thread",  ST_TODO },
-    { "Penjadwalan CPU Preemptive",   ST_TODO },
+    { "Penjadwalan CPU Preemptive",   ST_WORK },
     { "Sinkronisasi (mutex)",         ST_TODO },
     { "Deadlock",                     ST_TODO },
     { "Alokator Memori Dinamis",      ST_TODO },
