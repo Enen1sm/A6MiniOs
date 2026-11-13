@@ -1,5 +1,7 @@
 #include "kernel.h"
 #include "scheduler.h"
+#include "heap.h"
+#include "pet.h"
 
 #define COM1     0x3F8
 #define LINE_MAX 128
@@ -59,6 +61,7 @@ static void cmd_version(int argc, char **argv);
 static void cmd_ps(int argc, char **argv);
 static void cmd_quantum(int argc, char **argv);
 static void cmd_schedtest(int argc, char **argv);
+static void cmd_pet(int argc, char **argv);
 
 static const cmd_t cmds[] = {
     { "help",    "tampilkan daftar perintah", cmd_help    },
@@ -69,6 +72,8 @@ static const cmd_t cmds[] = {
     { "ps",        "daftar thread dan statusnya", cmd_ps },
     { "quantum",   "lihat/ubah quantum: quantum [tick]", cmd_quantum },
     { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
+    {"mem",        "memori heap (mem test, mem map)", cmd_mem },
+    { "pet",       "hewan peliharaan di status bar (pet [feed|status|stop])", cmd_pet },
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
@@ -123,6 +128,10 @@ static void cmd_schedtest(int argc, char **argv) {
     (void)argc; (void)argv;
     sched_demo_start();
     kprintf("Thread task_A dan task_B dibuat. Ketik 'ps' untuk melihat status.\n");
+}
+
+static void cmd_pet(int argc, char **argv) {
+    pet_command(argc, argv);
 }
 
 /* cari perintah di tabel lalu jalankan */

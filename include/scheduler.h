@@ -51,6 +51,7 @@ void     scheduler_tick(void);            /* dipanggil tiap interrupt timer */
 void     scheduler_set_quantum(uint32_t ticks);
 uint32_t scheduler_get_quantum(void);
 uint32_t scheduler_total_switches(void);
+uint32_t scheduler_active_threads(void);  /* thread NEW/READY/RUNNING/WAITING (dipakai "pet") */
 void     scheduler_dump(void);            /* untuk perintah "ps" */
 
 void     timer_init(uint32_t hz);

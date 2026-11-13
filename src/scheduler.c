@@ -56,6 +56,19 @@ void scheduler_set_quantum(uint32_t ticks) {
 uint32_t scheduler_get_quantum(void)    { return time_quantum; }
 uint32_t scheduler_total_switches(void) { return total_switches; }
 
+/* Jumlah thread yang masih hidup (termasuk main). */
+uint32_t scheduler_active_threads(void) {
+    uint32_t flags = irq_save();
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < MAX_THREADS; i++) {
+        thread_state_t st = threads[i].state;
+        if (st == THREAD_NEW || st == THREAD_READY ||
+            st == THREAD_RUNNING || st == THREAD_WAITING) n++;
+    }
+    irq_restore(flags);
+    return n;
+}
+
 /* ---- Manajemen thread ---- */
 void scheduler_init(void) {
     for (uint32_t i = 0; i < MAX_THREADS; i++) {
