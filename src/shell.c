@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "scheduler.h"
+#include "heap.h"
 
 #define COM1     0x3F8
 #define LINE_MAX 128
@@ -69,6 +70,7 @@ static const cmd_t cmds[] = {
     { "ps",        "daftar thread dan statusnya", cmd_ps },
     { "quantum",   "lihat/ubah quantum: quantum [tick]", cmd_quantum },
     { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
+    {"mem",        "memori heap (mem test, mem map)", cmd_mem},
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
