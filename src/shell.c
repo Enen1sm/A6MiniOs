@@ -74,7 +74,6 @@ static const cmd_t cmds[] = {
     { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
     {"mem",        "memori heap (mem test, mem map)", cmd_mem },
     { "pet",       "hewan peliharaan di status bar (pet [feed|status|stop])", cmd_pet },
-    {"mem",        "memori heap (mem test, mem map)", cmd_mem},
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
