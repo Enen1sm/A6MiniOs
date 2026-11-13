@@ -2,6 +2,7 @@
 #include "scheduler.h"
 #include "heap.h"
 #include "pet.h"
+#include "keyboard.h"
 
 #define COM1     0x3F8
 #define LINE_MAX 128
