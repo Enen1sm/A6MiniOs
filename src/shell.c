@@ -9,9 +9,13 @@
 
 /* ---- input serial ---- */
 static char serial_getc(void) {
-    while (!(inb(COM1 + 5) & 0x01)) { }   /* tunggu sampai ada data */
-    return (char)inb(COM1);
+    for (;;) {
+        if (inb(COM1 + 5) & 0x01) return (char)inb(COM1);   
+        int k = keyboard_poll();                            
+        if (k >= 0) return (char)k;
+    }
 }
+
 
 /* baca satu baris sampai Enter */
 static void readline(char *buf, int max) {
