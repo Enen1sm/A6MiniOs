@@ -5,19 +5,19 @@
     "Mini OS A6 merupakan proyek tugas mata kuliah Sistem Operasi berbasis bahasa C " \
     "dan Assembly yang dijalankan pada emulator QEMU. Mini OS ini kami buat bertujuan " \
     "untuk memahami cara kerja OS. Proyek ini mengimplementasikan 8 fitur utama arsitektur " \
-    "sistem operasi. " \
+    "sistem operasi dan tambahan fitur unik. " \
 
 enum { ST_TODO, ST_WORK, ST_DONE };
 
 typedef struct { const char *name; int status; } stage_t;
 
 static const stage_t stages[] = {
-    { "Bootstrapping & CLI Kernel",   ST_WORK },
-    { "Pengelolaan Proses & Thread",  ST_TODO },
-    { "Penjadwalan CPU Preemptive",   ST_TODO },
+    { "Bootstrapping & CLI Kernel",   ST_DONE },
+    { "Pengelolaan Proses & Thread",  ST_DONE },
+    { "Penjadwalan CPU Preemptive",   ST_DONE },
     { "Sinkronisasi (mutex)",         ST_TODO },
     { "Deadlock",                     ST_TODO },
-    { "Alokator Memori Dinamis",      ST_TODO },
+    { "Alokator Memori Dinamis",      ST_DONE },
     { "Virtual File System",          ST_TODO },
     { "Proteksi & Hak Akses",         ST_TODO },
 };
@@ -71,8 +71,7 @@ static void draw_status_bar(int done) {
     n = put_str(b, n, OS_NAME);
     n = put_str(b, n, " OS v");
     n = put_str(b, n, OS_VERSION);
-    n = put_str(b, n, " | ");
-    n = put_str(b, n, " | Modul selesai: ");
+    n = put_str(b, n, " | Modul: ");
     n = put_num(b, n, done);
     n = put_str(b, n, "/");
     n = put_num(b, n, NSTAGE);
@@ -109,11 +108,6 @@ void bootscreen_show(uint32_t magic) {
     tag(ST_DONE); kprintf("Console VGA text 80x25\n");
     tag(ST_DONE); kprintf("Serial COM1 115200 8N1\n");
 
-   kprintf("\n");
-    tag(magic == 0x2BADB002 ? ST_DONE : ST_WORK); kprintf("Multiboot  ");
-    tag(ST_DONE);                                 kprintf("VGA 80x25  ");
-    tag(ST_DONE);                                 kprintf("Serial COM1\n");
-
     console_set_color(COLOR_TITLE);
     kprintf("Progres tugas besar:\n");
     console_set_color(COLOR_NORMAL);
@@ -124,6 +118,9 @@ void bootscreen_show(uint32_t magic) {
         kprintf("\n");
     }
     rule('=');
+
+    console_set_color(COLOR_WARN);
+    kprintf("Ketik 'help' untuk daftar perintah\n");
 
     console_set_color(COLOR_OK);
     kprintf("a6> ");
