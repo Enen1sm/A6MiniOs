@@ -96,14 +96,67 @@ static const cmd_t cmds[] = {
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
+/* tampilan help*/
+typedef struct {
+    const char *title;
+    const char *names[8];
+} help_group_t;
+
+static const help_group_t help_groups[] = {
+    { "Sistem",       { "help", "clear", "echo", "version", 0 } },
+    { "Proses",       { "ps", "quantum", "schedtest", "ticktest", 0 } },
+    { "Sinkronisasi", { "race", 0 } },
+    { "Memori",       { "mem", 0 } },
+    { "Berkas",       { "ls", "create", "write", "cat", "rm", 0 } },
+};
+#define NGROUPS (sizeof(help_groups) / sizeof(help_groups[0]))
+
+static const cmd_t *find_cmd(const char *name) {
+    for (unsigned i = 0; i < NCMDS; i++)
+        if (strcmp(cmds[i].name, name) == 0) return &cmds[i];
+    return 0;
+}
+
+static int in_any_group(const char *name) {
+    for (unsigned g = 0; g < NGROUPS; g++)
+        for (int k = 0; help_groups[g].names[k]; k++)
+            if (strcmp(help_groups[g].names[k], name) == 0) return 1;
+    return 0;
+}
+
+/* cetak satu baris: "  nama      - keterangan" dengan kolom rata */
+static void print_cmd(const cmd_t *c) {
+    console_puts("  ");
+    console_puts(c->name);
+    for (unsigned i = (unsigned)strlen(c->name); i < 10; i++) console_putc(' ');
+    console_puts("- ");
+    console_puts(c->help);
+    console_putc('\n');
+}
+
+static void print_title(const char *t) {
+    console_set_color(COLOR_TITLE);
+    console_puts(t);
+    console_putc('\n');
+    console_set_color(COLOR_NORMAL);
+}
+
 static void cmd_help(int argc, char **argv) {
     (void)argc; (void)argv;
+
+    for (unsigned g = 0; g < NGROUPS; g++) {
+        print_title(help_groups[g].title);
+        for (int k = 0; help_groups[g].names[k]; k++) {
+            const cmd_t *c = find_cmd(help_groups[g].names[k]);
+            if (c) print_cmd(c);
+        }
+    }
+
+    int header_printed = 0;
     for (unsigned i = 0; i < NCMDS; i++) {
-        console_puts("  ");
-        console_puts(cmds[i].name);
-        console_puts(" - ");
-        console_puts(cmds[i].help);
-        console_putc('\n');
+        if (in_any_group(cmds[i].name)) continue;
+        if (!header_printed) { print_title("Lainnya"); header_printed = 1; }
+        print_cmd(&cmds[i]);
     }
 }
 static void cmd_clear(int argc, char **argv) {
