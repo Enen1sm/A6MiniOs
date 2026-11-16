@@ -55,6 +55,7 @@ void scheduler_set_quantum(uint32_t ticks) {
 }
 uint32_t scheduler_get_quantum(void)    { return time_quantum; }
 uint32_t scheduler_total_switches(void) { return total_switches; }
+uint32_t thread_current_id(void)       { return current->id; }
 
 /* Jumlah thread yang masih hidup (termasuk main). */
 uint32_t scheduler_active_threads(void) {
