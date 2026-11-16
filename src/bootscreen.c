@@ -18,7 +18,7 @@ static const stage_t stages[] = {
     { "Sinkronisasi (mutex)",         ST_TODO },
     { "Deadlock",                     ST_TODO },
     { "Alokator Memori Dinamis",      ST_DONE },
-    { "Virtual File System",          ST_TODO },
+    { "Virtual File System",          ST_DONE },
     { "Proteksi & Hak Akses",         ST_TODO },
 };
 #define NSTAGE ((int)(sizeof(stages) / sizeof(stages[0])))

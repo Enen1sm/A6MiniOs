@@ -3,6 +3,7 @@
 #include "heap.h"
 #include "pet.h"
 #include "keyboard.h"
+#include "ramfs.h"
 
 #define COM1     0x3F8
 #define LINE_MAX 128
@@ -67,6 +68,11 @@ static void cmd_ps(int argc, char **argv);
 static void cmd_quantum(int argc, char **argv);
 static void cmd_schedtest(int argc, char **argv);
 static void cmd_pet(int argc, char **argv);
+static void cmd_ls(int argc, char **argv);
+static void cmd_create(int argc, char **argv);
+static void cmd_write(int argc, char **argv);
+static void cmd_cat(int argc, char **argv);
+static void cmd_rm(int argc, char **argv);
 
 static const cmd_t cmds[] = {
     { "help",    "tampilkan daftar perintah", cmd_help    },
@@ -79,6 +85,11 @@ static const cmd_t cmds[] = {
     { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
     {"mem",        "memori heap (mem test, mem map)", cmd_mem },
     { "pet",       "hewan peliharaan di status bar (pet [feed|status|stop])", cmd_pet },
+    { "ls",        "daftar berkas di RAMDisk",                cmd_ls     },
+    { "create",    "buat berkas: create <nama>",              cmd_create },
+    { "write",     "tulis isi: write <nama> <teks>",          cmd_write  },
+    { "cat",       "baca berkas: cat <nama>",                 cmd_cat    },
+    { "rm",        "hapus berkas: rm <nama>",                 cmd_rm     },
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
@@ -137,6 +148,68 @@ static void cmd_schedtest(int argc, char **argv) {
 
 static void cmd_pet(int argc, char **argv) {
     pet_command(argc, argv);
+}
+
+/* ---- RAMDisk CRUD ---- */
+static const char *ramfs_err(int rc) {
+    switch (rc) {
+    case RAMFS_ENOTFOUND: return "berkas tidak ada";
+    case RAMFS_EEXIST:    return "nama sudah dipakai";
+    case RAMFS_EFULL:     return "RAMDisk penuh (maks 16 berkas)";
+    case RAMFS_ETOOLONG:  return "nama kosong atau lebih dari 19 karakter";
+    case RAMFS_ENOSPACE:  return "isi melebihi 255 byte";
+    default:              return "gagal";
+    }
+}
+
+static void cmd_ls(int argc, char **argv) {
+    (void)argc; (void)argv;
+    const char *name; uint32_t size;
+    int i = 0, n = 0;
+    while ((i = ramfs_next(i, &name, &size)) != 0) {
+        kprintf("  %-20s %u byte\n", name, size);
+        n++;
+    }
+    if (!n) kprintf("  (belum ada berkas)\n");
+}
+
+static void cmd_create(int argc, char **argv) {
+    if (argc < 2) { kprintf("pakai: create <nama>\n"); return; }
+    int rc = ramfs_create(argv[1]);
+    if (rc == RAMFS_OK) kprintf("dibuat: %s\n", argv[1]);
+    else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
+}
+
+static void cmd_write(int argc, char **argv) {
+    if (argc < 3) { kprintf("pakai: write <nama> <teks>\n"); return; }
+    char buf[RAMFS_DATALEN]; int n = 0;
+    for (int i = 2; i < argc; i++) {
+        if (i > 2) { if (n >= RAMFS_DATALEN - 1) { kprintf("gagal: isi melebihi 255 byte\n"); return; } buf[n++] = ' '; }
+        for (const char *p = argv[i]; *p; p++) {
+            if (n >= RAMFS_DATALEN - 1) { kprintf("gagal: isi melebihi 255 byte\n"); return; }
+            buf[n++] = *p;
+        }
+    }
+    int rc = ramfs_write(argv[1], buf, (uint32_t)n);
+    if (rc == RAMFS_OK) kprintf("%s: %d byte ditulis\n", argv[1], n);
+    else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
+}
+
+static void cmd_cat(int argc, char **argv) {
+    if (argc < 2) { kprintf("pakai: cat <nama>\n"); return; }
+    uint32_t n = 0;
+    const char *data = ramfs_read(argv[1], &n);
+    if (!data) { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(RAMFS_ENOTFOUND)); console_set_color(COLOR_NORMAL); return; }
+    kprintf("%s (%u byte):\n", argv[1], n);
+    console_puts(data);
+    console_putc('\n');
+}
+
+static void cmd_rm(int argc, char **argv) {
+    if (argc < 2) { kprintf("pakai: rm <nama>\n"); return; }
+    int rc = ramfs_delete(argv[1]);
+    if (rc == RAMFS_OK) kprintf("dihapus: %s\n", argv[1]);
+    else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
 }
 
 /* cari perintah di tabel lalu jalankan */
