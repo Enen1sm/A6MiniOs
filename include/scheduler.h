@@ -52,6 +52,7 @@ void     scheduler_set_quantum(uint32_t ticks);
 uint32_t scheduler_get_quantum(void);
 uint32_t scheduler_total_switches(void);
 uint32_t scheduler_active_threads(void);  /* thread NEW/READY/RUNNING/WAITING (dipakai "pet") */
+uint32_t thread_current_id(void);   /* id thread yang sedang jalan (dipakai mutex) */
 void     scheduler_dump(void);            /* untuk perintah "ps" */
 
 void     timer_init(uint32_t hz);
