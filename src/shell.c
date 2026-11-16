@@ -62,7 +62,6 @@ typedef struct {
 
 static void cmd_help(int argc, char **argv);
 static void cmd_clear(int argc, char **argv);
-static void cmd_about(int argc, char **argv);
 static void cmd_echo(int argc, char **argv);
 static void cmd_version(int argc, char **argv);
 static void cmd_ps(int argc, char **argv);
@@ -80,7 +79,6 @@ static void cmd_rm(int argc, char **argv);
 static const cmd_t cmds[] = {
     { "help",    "tampilkan daftar perintah", cmd_help    },
     { "clear",   "bersihkan layar",           cmd_clear   },
-    { "about",   "tentang A6 OS",             cmd_about   },
     { "echo",    "cetak teks",                cmd_echo    },
     { "version", "versi OS",                  cmd_version },
     { "ps",        "daftar thread dan statusnya", cmd_ps },
@@ -112,10 +110,7 @@ static void cmd_clear(int argc, char **argv) {
     (void)argc; (void)argv;
     console_clear();
 }
-static void cmd_about(int argc, char **argv) {
-    (void)argc; (void)argv;
-    console_puts("A6 OS - Tugas Besar Sistem Operasi (C & Assembly, QEMU)\n");
-}
+
 static void cmd_echo(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         console_puts(argv[i]);
