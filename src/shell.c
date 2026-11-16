@@ -3,6 +3,7 @@
 #include "heap.h"
 #include "pet.h"
 #include "keyboard.h"
+#include "sync.h"
 #include "ramfs.h"
 
 #define COM1     0x3F8
@@ -68,6 +69,8 @@ static void cmd_ps(int argc, char **argv);
 static void cmd_quantum(int argc, char **argv);
 static void cmd_schedtest(int argc, char **argv);
 static void cmd_pet(int argc, char **argv);
+static void cmd_race(int argc, char **argv);
+static void cmd_ticktest(int argc, char **argv);
 static void cmd_ls(int argc, char **argv);
 static void cmd_create(int argc, char **argv);
 static void cmd_write(int argc, char **argv);
@@ -85,6 +88,8 @@ static const cmd_t cmds[] = {
     { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
     {"mem",        "memori heap (mem test, mem map)", cmd_mem },
     { "pet",       "hewan peliharaan di status bar (pet [feed|status|stop])", cmd_pet },
+    { "race",      "demo race condition (race nolock|lock|status)", cmd_race },
+    { "ticktest",  "uji 1 tick = 10 ms dengan stopwatch: ticktest [detik]", cmd_ticktest },
     { "ls",        "daftar berkas di RAMDisk",                cmd_ls     },
     { "create",    "buat berkas: create <nama>",              cmd_create },
     { "write",     "tulis isi: write <nama> <teks>",          cmd_write  },
@@ -210,6 +215,28 @@ static void cmd_rm(int argc, char **argv) {
     int rc = ramfs_delete(argv[1]);
     if (rc == RAMFS_OK) kprintf("dihapus: %s\n", argv[1]);
     else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
+}
+
+static void cmd_race(int argc, char **argv) {
+    race_command(argc, argv);
+}
+
+/* Menunggu N detik berdasarkan hitungan tick. Cocokkan dengan stopwatch. */
+static void cmd_ticktest(int argc, char **argv) {
+    uint32_t detik = 10;
+    if (argc >= 2) {
+        detik = 0;
+        for (const char *p = argv[1]; *p; p++) {
+            if (*p < '0' || *p > '9') { detik = 0; break; }
+            detik = detik * 10 + (uint32_t)(*p - '0');
+        }
+        if (detik < 1 || detik > 60) { kprintf("Pakai: ticktest [1..60 detik]\n"); return; }
+    }
+    kprintf("%u detik = %u tick (1 tick = %u ms)\n", detik, detik * TIMER_HZ, 1000 / TIMER_HZ);
+    kprintf(">>> MULAI - nyalakan stopwatch sekarang\n");
+    uint32_t awal = timer_ticks();
+    while (timer_ticks() - awal < detik * TIMER_HZ) { }
+    kprintf(">>> SELESAI - hentikan stopwatch. Harusnya %u detik.\n", detik);
 }
 
 /* cari perintah di tabel lalu jalankan */
