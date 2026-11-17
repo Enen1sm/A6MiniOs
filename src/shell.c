@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "scheduler.h"
 #include "heap.h"
+#include "deadlock.h"
 #include "pet.h"
 #include "keyboard.h"
 #include "sync.h"
@@ -86,6 +87,7 @@ static const cmd_t cmds[] = {
     { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
     {"mem",        "memori heap (mem test, mem map)", cmd_mem },
     { "pet",       "hewan peliharaan di status bar (pet [feed|status|stop])", cmd_pet },
+    { "deadlock",  "demo deadlock (deadlock demo | deadlock fix)", cmd_deadlock },
     { "race",      "demo race condition (race nolock|lock|status)", cmd_race },
     { "ticktest",  "uji 1 tick = 10 ms dengan stopwatch: ticktest [detik]", cmd_ticktest },
     { "ls",        "daftar berkas di RAMDisk",                cmd_ls     },
