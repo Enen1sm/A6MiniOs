@@ -139,6 +139,7 @@ void thread_yield(void) {
     irq_restore(flags);
 }
 
+
 /* Disiapkan untuk mutex/semaphore nanti. */
 void thread_block(void) {
     uint32_t flags = irq_save();
