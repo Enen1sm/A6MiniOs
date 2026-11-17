@@ -18,9 +18,9 @@
 #define TIMER_HZ            100
 #define TIME_QUANTUM_TICKS  5
 
-#define MAX_THREADS         8
+#define MAX_THREADS         32
 #define THREAD_STACK_SIZE   8192
-#define THREAD_NAME_LEN     16
+#define THREAD_NAME_LEN     32
 
 typedef enum {
     THREAD_UNUSED = 0,   /* slot kosong */
@@ -43,6 +43,8 @@ typedef struct thread {
 
 void     scheduler_init(void);
 int      thread_create(const char *name, void (*entry)(void));
+int      process_register(const char *name);
+void     process_terminate(int pid);
 void     thread_exit(void);
 void     thread_yield(void);
 void     thread_block(void);              /* RUNNING -> WAITING (untuk mutex nanti) */

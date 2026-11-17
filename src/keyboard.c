@@ -27,7 +27,12 @@ int keyboard_poll(void) {
     if (st & 0x20) return -1;               
  
     if (sc == 0xE0) { ext = 1; return -1; } 
-    if (ext)        { ext = 0; return -1; } 
+    if (ext) {
+        ext = 0;
+        if (sc == 0x4B) return KEY_LEFT;
+        if (sc == 0x4D) return KEY_RIGHT;
+        return -1;
+    } 
  
     if (sc & 0x80) {                        
         uint8_t k = sc & 0x7F;

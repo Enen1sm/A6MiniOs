@@ -11,14 +11,50 @@
 #define LINE_MAX 128
 #define MAX_ARGS 8
 
+static int shell_getkey(void) {
+    for (;;) {
+        if (inb(COM1 + 5) & 0x01) {
+            uint8_t c = inb(COM1);
+            if (c == 27) {
+                int has_next = 0;
+                for (volatile int i = 0; i < 20000; i++) {
+                    if (inb(COM1 + 5) & 0x01) { has_next = 1; break; }
+                }
+                if (has_next) {
+                    uint8_t c2 = inb(COM1);
+                    if (c2 == '[') {
+                        for (volatile int j = 0; j < 50000; j++) {
+                            if (inb(COM1 + 5) & 0x01) {
+                                uint8_t c3 = inb(COM1);
+                                if (c3 == 'D') return KEY_LEFT;
+                                if (c3 == 'C') return KEY_RIGHT;
+                                break;
+                            }
+                        }
+                    }
+                }
+                return KEY_ESC;
+            }
+            if (c == '\r') return '\n';
+            if (c == 0x7F) return '\b';
+            return (int)c;
+        }
+        int k = keyboard_poll();
+        if (k >= 0) {
+            if (k == '\r') return '\n';
+            if (k == 0x7F) return '\b';
+            return k;
+        }
+        thread_yield();
+        __asm__ volatile ("sti; hlt");
+    }
+}
+
 /* ---- input serial ---- */
 static char serial_getc(void) {
     for (;;) {
-        if (inb(COM1 + 5) & 0x01) return (char)inb(COM1);   /* dari terminal */
-        int k = keyboard_poll();                            /* dari jendela OS */
-        if (k >= 0) return (char)k;
-        thread_yield();                                     /* beri giliran thread lain */
-        __asm__ volatile ("sti; hlt");                      /* tidur sampai interrupt berikutnya */
+        int k = shell_getkey();
+        if (k >= 0 && k <= 255) return (char)k;
     }
 }
 
@@ -76,6 +112,7 @@ static void cmd_ticktest(int argc, char **argv);
 static void cmd_ls(int argc, char **argv);
 static void cmd_create(int argc, char **argv);
 static void cmd_write(int argc, char **argv);
+static void cmd_update(int argc, char **argv);
 static void cmd_cat(int argc, char **argv);
 static void cmd_rm(int argc, char **argv);
 
@@ -95,8 +132,11 @@ static const cmd_t cmds[] = {
     { "ls",        "daftar berkas di RAMDisk",                cmd_ls     },
     { "create",    "buat berkas: create <nama>",              cmd_create },
     { "write",     "tulis isi: write <nama> <teks>",          cmd_write  },
+    { "update",    "edit isi interaktif: update <nama>",      cmd_update },
     { "cat",       "baca berkas: cat <nama>",                 cmd_cat    },
+    { "read",      "baca berkas (alias cat): read <nama>",    cmd_cat    },
     { "rm",        "hapus berkas: rm <nama>",                 cmd_rm     },
+    { "delete",    "hapus berkas (alias rm): delete <nama>",  cmd_rm     },
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
@@ -111,7 +151,7 @@ static const help_group_t help_groups[] = {
     { "Proses",       { "ps", "quantum", "schedtest", "ticktest", 0 } },
     { "Sinkronisasi", { "race", 0 } },
     { "Memori",       { "mem", 0 } },
-    { "Berkas",       { "ls", "create", "write", "cat", "rm", 0 } },
+    { "Berkas",       { "ls", "create", "write", "update", "cat", "rm", 0 } },
 };
 #define NGROUPS (sizeof(help_groups) / sizeof(help_groups[0]))
 
@@ -230,43 +270,197 @@ static void cmd_ls(int argc, char **argv) {
     if (!n) kprintf("  (belum ada berkas)\n");
 }
 
+static void make_proc_name(char *dst, size_t max, const char *op, const char *arg) {
+    size_t i = 0;
+    while (*op && i + 1 < max) dst[i++] = *op++;
+    if (arg && *arg && i + 1 < max) dst[i++] = ' ';
+    if (arg) {
+        while (*arg && i + 1 < max) dst[i++] = *arg++;
+    }
+    dst[i] = 0;
+}
+
+static void editor_render(const char *prefix, const char *buf, int len, int cursor_pos, int *prev_len) {
+    console_putc('\r');
+    int count = 0;
+    for (const char *p = prefix; *p; p++) { console_putc(*p); count++; }
+    for (int i = 0; i <= len; i++) {
+        if (i == cursor_pos) { console_putc('|'); count++; }
+        if (i < len) { console_putc(buf[i]); count++; }
+    }
+    if (count < *prev_len) {
+        int diff = *prev_len - count;
+        for (int i = 0; i < diff; i++) console_putc(' ');
+        console_putc('\r');
+        for (const char *p = prefix; *p; p++) console_putc(*p);
+        for (int i = 0; i <= len; i++) {
+            if (i == cursor_pos) console_putc('|');
+            if (i < len) console_putc(buf[i]);
+        }
+    }
+    *prev_len = count;
+}
+
 static void cmd_create(int argc, char **argv) {
     if (argc < 2) { kprintf("pakai: create <nama>\n"); return; }
+    char pname[THREAD_NAME_LEN];
+    make_proc_name(pname, sizeof(pname), "create", argv[1]);
+    int pid = process_register(pname);
+
     int rc = ramfs_create(argv[1]);
     if (rc == RAMFS_OK) kprintf("dibuat: %s\n", argv[1]);
     else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
+
+    process_terminate(pid);
 }
 
 static void cmd_write(int argc, char **argv) {
     if (argc < 3) { kprintf("pakai: write <nama> <teks>\n"); return; }
+    char pname[THREAD_NAME_LEN];
+    make_proc_name(pname, sizeof(pname), "write", argv[1]);
+    int pid = process_register(pname);
+
     char buf[RAMFS_DATALEN]; int n = 0;
     for (int i = 2; i < argc; i++) {
-        if (i > 2) { if (n >= RAMFS_DATALEN - 1) { kprintf("gagal: isi melebihi 255 byte\n"); return; } buf[n++] = ' '; }
+        if (i > 2) {
+            if (n >= RAMFS_DATALEN - 1) {
+                console_set_color(COLOR_ERR);
+                kprintf("gagal: isi melebihi 255 byte\n");
+                console_set_color(COLOR_NORMAL);
+                process_terminate(pid);
+                return;
+            }
+            buf[n++] = ' ';
+        }
         for (const char *p = argv[i]; *p; p++) {
-            if (n >= RAMFS_DATALEN - 1) { kprintf("gagal: isi melebihi 255 byte\n"); return; }
+            if (n >= RAMFS_DATALEN - 1) {
+                console_set_color(COLOR_ERR);
+                kprintf("gagal: isi melebihi 255 byte\n");
+                console_set_color(COLOR_NORMAL);
+                process_terminate(pid);
+                return;
+            }
             buf[n++] = *p;
         }
     }
     int rc = ramfs_write(argv[1], buf, (uint32_t)n);
     if (rc == RAMFS_OK) kprintf("%s: %d byte ditulis\n", argv[1], n);
     else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
+
+    process_terminate(pid);
+}
+
+static void cmd_update(int argc, char **argv) {
+    if (argc < 2) { kprintf("pakai: update <nama>\n"); return; }
+    char pname[THREAD_NAME_LEN];
+    make_proc_name(pname, sizeof(pname), "update", argv[1]);
+    int pid = process_register(pname);
+
+    uint32_t orig_len = 0;
+    const char *orig_data = ramfs_read(argv[1], &orig_len);
+    if (!orig_data) {
+        console_set_color(COLOR_ERR);
+        kprintf("gagal: %s\n", ramfs_err(RAMFS_ENOTFOUND));
+        console_set_color(COLOR_NORMAL);
+        process_terminate(pid);
+        return;
+    }
+
+    char buf[RAMFS_DATALEN];
+    int len = (int)orig_len;
+    if (len >= RAMFS_DATALEN) len = RAMFS_DATALEN - 1;
+    memcpy(buf, orig_data, (size_t)len);
+    buf[len] = 0;
+    int cursor_pos = len;
+    int prev_len = 0;
+
+    editor_render("edit: ", buf, len, cursor_pos, &prev_len);
+
+    for (;;) {
+        int k = shell_getkey();
+        if (k == KEY_ESC) {
+            console_putc('\n');
+            kprintf("edit dibatalkan\n");
+            process_terminate(pid);
+            return;
+        }
+        if (k == '\n') {
+            console_putc('\n');
+            int rc = ramfs_write(argv[1], buf, (uint32_t)len);
+            if (rc == RAMFS_OK) {
+                kprintf("%s: %d byte disimpan\n", argv[1], len);
+            } else {
+                console_set_color(COLOR_ERR);
+                kprintf("gagal: %s\n", ramfs_err(rc));
+                console_set_color(COLOR_NORMAL);
+            }
+            process_terminate(pid);
+            return;
+        }
+        if (k == KEY_LEFT) {
+            if (cursor_pos > 0) cursor_pos--;
+            editor_render("edit: ", buf, len, cursor_pos, &prev_len);
+        } else if (k == KEY_RIGHT) {
+            if (cursor_pos < len) cursor_pos++;
+            editor_render("edit: ", buf, len, cursor_pos, &prev_len);
+        } else if (k == '\b') {
+            if (cursor_pos > 0) {
+                for (int i = cursor_pos - 1; i < len - 1; i++) {
+                    buf[i] = buf[i + 1];
+                }
+                len--;
+                cursor_pos--;
+                buf[len] = 0;
+                editor_render("edit: ", buf, len, cursor_pos, &prev_len);
+            }
+        } else if (k >= 32 && k <= 126) {
+            if (len < RAMFS_DATALEN - 1) {
+                for (int i = len; i > cursor_pos; i--) {
+                    buf[i] = buf[i - 1];
+                }
+                buf[cursor_pos] = (char)k;
+                len++;
+                cursor_pos++;
+                buf[len] = 0;
+                editor_render("edit: ", buf, len, cursor_pos, &prev_len);
+            }
+        }
+    }
 }
 
 static void cmd_cat(int argc, char **argv) {
-    if (argc < 2) { kprintf("pakai: cat <nama>\n"); return; }
+    if (argc < 2) { kprintf("pakai: %s <nama>\n", argv[0]); return; }
+    char pname[THREAD_NAME_LEN];
+    make_proc_name(pname, sizeof(pname), argv[0], argv[1]);
+    int pid = process_register(pname);
+
     uint32_t n = 0;
     const char *data = ramfs_read(argv[1], &n);
-    if (!data) { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(RAMFS_ENOTFOUND)); console_set_color(COLOR_NORMAL); return; }
+    if (!data) {
+        console_set_color(COLOR_ERR);
+        kprintf("gagal: %s\n", ramfs_err(RAMFS_ENOTFOUND));
+        console_set_color(COLOR_NORMAL);
+        process_terminate(pid);
+        return;
+    }
     kprintf("%s (%u byte):\n", argv[1], n);
     console_puts(data);
     console_putc('\n');
+
+    process_terminate(pid);
 }
 
 static void cmd_rm(int argc, char **argv) {
-    if (argc < 2) { kprintf("pakai: rm <nama>\n"); return; }
+    if (argc < 2) { kprintf("pakai: %s <nama>\n", argv[0]); return; }
+    char pname[THREAD_NAME_LEN];
+    make_proc_name(pname, sizeof(pname), argv[0], argv[1]);
+    int pid = process_register(pname);
+
     int rc = ramfs_delete(argv[1]);
     if (rc == RAMFS_OK) kprintf("dihapus: %s\n", argv[1]);
     else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
+
+    process_terminate(pid);
 }
 
 static void cmd_race(int argc, char **argv) {

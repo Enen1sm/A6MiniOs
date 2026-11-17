@@ -95,9 +95,17 @@ int thread_create(const char *name, void (*entry)(void)) {
     int slot = -1;
 
     for (uint32_t i = 1; i < MAX_THREADS; i++) {
-        if (threads[i].state == THREAD_UNUSED || threads[i].state == THREAD_TERMINATED) {
+        if (threads[i].state == THREAD_UNUSED) {
             slot = (int)i;
             break;
+        }
+    }
+    if (slot < 0) {
+        for (uint32_t i = 1; i < MAX_THREADS; i++) {
+            if (threads[i].state == THREAD_TERMINATED) {
+                slot = (int)i;
+                break;
+            }
         }
     }
     if (slot < 0) { irq_restore(flags); return -1; }   /* tabel penuh */
@@ -124,6 +132,40 @@ int thread_create(const char *name, void (*entry)(void)) {
     t->state = THREAD_READY;         /* NEW -> READY */
     irq_restore(flags);
     return slot;
+}
+
+int process_register(const char *name) {
+    uint32_t flags = irq_save();
+    int slot = -1;
+
+    for (uint32_t i = 1; i < MAX_THREADS; i++) {
+        if (threads[i].state == THREAD_UNUSED) {
+            slot = (int)i;
+            break;
+        }
+    }
+    if (slot < 0) {
+        irq_restore(flags);
+        return -1;
+    }
+
+    thread_t *t = &threads[slot];
+    t->id = (uint32_t)slot;
+    t->state = THREAD_RUNNING;
+    t->cpu_ticks = 0;
+    t->times_scheduled = 1;
+    strncpy(t->name, name, THREAD_NAME_LEN - 1);
+    t->name[THREAD_NAME_LEN - 1] = 0;
+
+    irq_restore(flags);
+    return slot;
+}
+
+void process_terminate(int pid) {
+    if (pid <= 0 || pid >= (int)MAX_THREADS) return;
+    uint32_t flags = irq_save();
+    threads[pid].state = THREAD_TERMINATED;
+    irq_restore(flags);
 }
 
 void thread_exit(void) {
@@ -160,11 +202,11 @@ static const char *const state_name[] = { "UNUSED", "NEW", "READY", "RUNNING", "
 
 void scheduler_dump(void) {
     uint32_t flags = irq_save();   /* snapshot konsisten */
-    kprintf("ID  %-10s %-11s %6s %6s\n", "NAMA", "STATE", "TICKS", "JATAH");
+    kprintf("ID  %-20s %-11s %6s %6s\n", "NAMA", "STATE", "TICKS", "JATAH");
     for (uint32_t i = 0; i < MAX_THREADS; i++) {
         thread_t *t = &threads[i];
         if (t->state == THREAD_UNUSED) continue;
-        kprintf("%-3u %-10s %-11s %6u %6u\n", t->id, t->name, state_name[t->state],
+        kprintf("%-3u %-20s %-11s %6u %6u\n", t->id, t->name, state_name[t->state],
                 t->cpu_ticks, t->times_scheduled);
     }
     kprintf("Context switch total: %u\n", total_switches);
