@@ -14,9 +14,11 @@
 /* ---- input serial ---- */
 static char serial_getc(void) {
     for (;;) {
-        if (inb(COM1 + 5) & 0x01) return (char)inb(COM1);   
-        int k = keyboard_poll();                            
+        if (inb(COM1 + 5) & 0x01) return (char)inb(COM1);   /* dari terminal */
+        int k = keyboard_poll();                            /* dari jendela OS */
         if (k >= 0) return (char)k;
+        thread_yield();                                     /* beri giliran thread lain */
+        __asm__ volatile ("sti; hlt");                      /* tidur sampai interrupt berikutnya */
     }
 }
 
