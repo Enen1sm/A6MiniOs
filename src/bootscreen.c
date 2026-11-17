@@ -19,7 +19,7 @@ static const stage_t stages[] = {
     { "Deadlock",                     ST_DONE },
     { "Alokator Memori Dinamis",      ST_DONE },
     { "Virtual File System",          ST_DONE },
-    { "Proteksi & Hak Akses",         ST_TODO },
+    { "Proteksi & Hak Akses",         ST_DONE },
 };
 #define NSTAGE ((int)(sizeof(stages) / sizeof(stages[0])))
 
@@ -123,7 +123,7 @@ void bootscreen_show(uint32_t magic) {
     kprintf("Ketik 'help' untuk daftar perintah\n");
 
     console_set_color(COLOR_OK);
-    kprintf("a6> ");
+    kprintf("MiniOS [user]> ");
     console_set_color(COLOR_NORMAL);
 
     draw_status_bar(done);

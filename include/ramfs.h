@@ -2,6 +2,7 @@
 #define RAMFS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define RAMFS_MAX       16
 #define RAMFS_NAMELEN   20
@@ -16,6 +17,9 @@ enum {
     RAMFS_ENOSPACE  = -5,
 };
 
+void        ramfs_init(void);
+bool        ramfs_is_protected(const char *name);
+void        ramfs_set_protected(const char *name, bool prot);
 int         ramfs_create(const char *name);
 int         ramfs_write(const char *name, const char *data, uint32_t len);
 const char *ramfs_read(const char *name, uint32_t *len);

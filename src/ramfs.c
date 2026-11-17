@@ -3,6 +3,7 @@
 
 struct ramfile {
     bool     used;
+    bool     is_protected;
     char     name[RAMFS_NAMELEN];
     uint32_t size;
     char     data[RAMFS_DATALEN];
@@ -14,6 +15,27 @@ static struct ramfile *find(const char *name) {
     for (int i = 0; i < RAMFS_MAX; i++)
         if (files[i].used && strcmp(files[i].name, name) == 0) return &files[i];
     return 0;
+}
+
+void ramfs_init(void) {
+    static bool inited = false;
+    if (inited) return;
+    inited = true;
+    ramfs_create("system.txt");
+    const char *sys_content = "OS_VERSION=A6MiniOS_1.0";
+    ramfs_write("system.txt", sys_content, (uint32_t)strlen(sys_content));
+    struct ramfile *f = find("system.txt");
+    if (f) f->is_protected = true;
+}
+
+bool ramfs_is_protected(const char *name) {
+    struct ramfile *f = find(name);
+    return f ? f->is_protected : false;
+}
+
+void ramfs_set_protected(const char *name, bool prot) {
+    struct ramfile *f = find(name);
+    if (f) f->is_protected = prot;
 }
 
 int ramfs_create(const char *name) {

@@ -50,32 +50,23 @@ static int shell_getkey(void) {
     }
 }
 
-/* ---- input serial ---- */
-static char serial_getc(void) {
-    for (;;) {
-        int k = shell_getkey();
-        if (k >= 0 && k <= 255) return (char)k;
-    }
-}
-
-
 /* baca satu baris sampai Enter */
 static void readline(char *buf, int max) {
     int n = 0;
     for (;;) {
-        char c = serial_getc();
-        if (c == '\r' || c == '\n') {
+        int k = shell_getkey();
+        if (k == '\r' || k == '\n') {
             console_putc('\n');
             buf[n] = 0;
             return;
         }
-        if (c == 0x7F || c == '\b') {      /* backspace */
+        if (k == 0x7F || k == '\b') {      /* backspace */
             if (n > 0) { n--; console_puts("\b \b"); }
             continue;
         }
-        if (c >= 32 && c < 127 && n < max - 1) {
-            buf[n++] = c;
-            console_putc(c);               /* echo */
+        if (k >= 32 && k < 127 && n < max - 1) {
+            buf[n++] = (char)k;
+            console_putc((char)k);               /* echo */
         }
     }
 }
@@ -103,6 +94,7 @@ static void cmd_help(int argc, char **argv);
 static void cmd_clear(int argc, char **argv);
 static void cmd_echo(int argc, char **argv);
 static void cmd_version(int argc, char **argv);
+static void cmd_role(int argc, char **argv);
 static void cmd_ps(int argc, char **argv);
 static void cmd_quantum(int argc, char **argv);
 static void cmd_schedtest(int argc, char **argv);
@@ -121,6 +113,7 @@ static const cmd_t cmds[] = {
     { "clear",   "bersihkan layar",           cmd_clear   },
     { "echo",    "cetak teks",                cmd_echo    },
     { "version", "versi OS",                  cmd_version },
+    { "role",    "ganti/lihat role aktif: role [admin|user]", cmd_role },
     { "ps",        "daftar thread dan statusnya", cmd_ps },
     { "quantum",   "lihat/ubah quantum: quantum [tick]", cmd_quantum },
     { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
@@ -132,11 +125,9 @@ static const cmd_t cmds[] = {
     { "ls",        "daftar berkas di RAMDisk",                cmd_ls     },
     { "create",    "buat berkas: create <nama>",              cmd_create },
     { "write",     "tulis isi: write <nama> <teks>",          cmd_write  },
-    { "update",    "edit isi interaktif: update <nama>",      cmd_update },
+    { "update",    "edit isi: update <nama>",                 cmd_update },
     { "cat",       "baca berkas: cat <nama>",                 cmd_cat    },
-    { "read",      "baca berkas (alias cat): read <nama>",    cmd_cat    },
     { "rm",        "hapus berkas: rm <nama>",                 cmd_rm     },
-    { "delete",    "hapus berkas (alias rm): delete <nama>",  cmd_rm     },
 };
 #define NCMDS (sizeof(cmds) / sizeof(cmds[0]))
 
@@ -147,7 +138,7 @@ typedef struct {
 } help_group_t;
 
 static const help_group_t help_groups[] = {
-    { "Sistem",       { "help", "clear", "echo", "version", 0 } },
+    { "Sistem",       { "help", "clear", "echo", "version", "role", 0 } },
     { "Proses",       { "ps", "quantum", "schedtest", "ticktest", 0 } },
     { "Sinkronisasi", { "race", 0 } },
     { "Memori",       { "mem", 0 } },
@@ -218,6 +209,24 @@ static void cmd_echo(int argc, char **argv) {
 static void cmd_version(int argc, char **argv) {
     (void)argc; (void)argv;
     console_puts("A6 OS v" OS_VERSION "\n");
+}
+
+static const char *current_role = "user";
+
+static void cmd_role(int argc, char **argv) {
+    if (argc < 2) {
+        kprintf("Role aktif: %s\nPakai: role [admin|user]\n", current_role);
+        return;
+    }
+    if (strcmp(argv[1], "admin") == 0) {
+        current_role = "admin";
+        kprintf("Beralih ke role admin.\n");
+    } else if (strcmp(argv[1], "user") == 0) {
+        current_role = "user";
+        kprintf("Beralih ke role user.\n");
+    } else {
+        kprintf("Role tidak dikenal. Pilihan: admin, user\n");
+    }
 }
 
 static void cmd_ps(int argc, char **argv) {
@@ -301,6 +310,16 @@ static void editor_render(const char *prefix, const char *buf, int len, int curs
     *prev_len = count;
 }
 
+static void deny_msg(const char *name, const char *action) {
+    console_set_color(COLOR_ERR);
+    if (strcmp(name, "system.txt") == 0) {
+        kprintf("[ACCESS DENIED] File sistem hanya bisa diubah atau dihapus oleh admin.\n");
+    } else {
+        kprintf("[ACCESS DENIED] Berkas terproteksi hanya bisa %s oleh admin.\n", action);
+    }
+    console_set_color(COLOR_NORMAL);
+}
+
 static void cmd_create(int argc, char **argv) {
     if (argc < 2) { kprintf("pakai: create <nama>\n"); return; }
     char pname[THREAD_NAME_LEN];
@@ -308,8 +327,18 @@ static void cmd_create(int argc, char **argv) {
     int pid = process_register(pname);
 
     int rc = ramfs_create(argv[1]);
-    if (rc == RAMFS_OK) kprintf("dibuat: %s\n", argv[1]);
-    else { console_set_color(COLOR_ERR); kprintf("gagal: %s\n", ramfs_err(rc)); console_set_color(COLOR_NORMAL); }
+    if (rc == RAMFS_OK) {
+        if (strcmp(current_role, "admin") == 0) {
+            ramfs_set_protected(argv[1], true);
+            kprintf("dibuat (terproteksi admin): %s\n", argv[1]);
+        } else {
+            kprintf("dibuat: %s\n", argv[1]);
+        }
+    } else {
+        console_set_color(COLOR_ERR);
+        kprintf("gagal: %s\n", ramfs_err(rc));
+        console_set_color(COLOR_NORMAL);
+    }
 
     process_terminate(pid);
 }
@@ -319,6 +348,12 @@ static void cmd_write(int argc, char **argv) {
     char pname[THREAD_NAME_LEN];
     make_proc_name(pname, sizeof(pname), "write", argv[1]);
     int pid = process_register(pname);
+
+    if (ramfs_is_protected(argv[1]) && strcmp(current_role, "admin") != 0) {
+        deny_msg(argv[1], "diubah atau dihapus");
+        process_terminate(pid);
+        return;
+    }
 
     char buf[RAMFS_DATALEN]; int n = 0;
     for (int i = 2; i < argc; i++) {
@@ -355,6 +390,12 @@ static void cmd_update(int argc, char **argv) {
     char pname[THREAD_NAME_LEN];
     make_proc_name(pname, sizeof(pname), "update", argv[1]);
     int pid = process_register(pname);
+
+    if (ramfs_is_protected(argv[1]) && strcmp(current_role, "admin") != 0) {
+        deny_msg(argv[1], "diubah atau dihapus");
+        process_terminate(pid);
+        return;
+    }
 
     uint32_t orig_len = 0;
     const char *orig_data = ramfs_read(argv[1], &orig_len);
@@ -434,6 +475,12 @@ static void cmd_cat(int argc, char **argv) {
     make_proc_name(pname, sizeof(pname), argv[0], argv[1]);
     int pid = process_register(pname);
 
+    if (ramfs_is_protected(argv[1]) && strcmp(argv[1], "system.txt") != 0 && strcmp(current_role, "admin") != 0) {
+        deny_msg(argv[1], "dibuka");
+        process_terminate(pid);
+        return;
+    }
+
     uint32_t n = 0;
     const char *data = ramfs_read(argv[1], &n);
     if (!data) {
@@ -455,6 +502,12 @@ static void cmd_rm(int argc, char **argv) {
     char pname[THREAD_NAME_LEN];
     make_proc_name(pname, sizeof(pname), argv[0], argv[1]);
     int pid = process_register(pname);
+
+    if (ramfs_is_protected(argv[1]) && strcmp(current_role, "admin") != 0) {
+        deny_msg(argv[1], "diubah atau dihapus");
+        process_terminate(pid);
+        return;
+    }
 
     int rc = ramfs_delete(argv[1]);
     if (rc == RAMFS_OK) kprintf("dihapus: %s\n", argv[1]);
@@ -503,11 +556,18 @@ static void execute(char *line) {
     console_set_color(COLOR_NORMAL);
 }
 
+static void print_prompt(void) {
+    console_set_color(COLOR_OK);
+    kprintf("MiniOS [%s]> ", current_role);
+    console_set_color(COLOR_NORMAL);
+}
+
 void shell_run(void) {
+    ramfs_init();
     char line[LINE_MAX];
     for (;;) {
         readline(line, LINE_MAX);
         execute(line);
-        console_puts("a6> ");
+        print_prompt();
     }
 }
