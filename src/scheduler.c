@@ -56,6 +56,7 @@ void scheduler_set_quantum(uint32_t ticks) {
 uint32_t scheduler_get_quantum(void)    { return time_quantum; }
 uint32_t scheduler_total_switches(void) { return total_switches; }
 uint32_t thread_current_id(void)       { return current->id; }
+uint32_t thread_current_cpu_ticks(void) { return current->cpu_ticks; }
 
 /* Jumlah thread yang masih hidup (termasuk main). */
 uint32_t scheduler_active_threads(void) {
@@ -181,6 +182,16 @@ void thread_yield(void) {
     irq_restore(flags);
 }
 
+
+/* Hapus catatan thread TERMINATED yang bernama 'name' (slotnya jadi kosong lagi).
+ * Dipakai "schedtest" agar "ps" hanya menampilkan thread dari demo terakhir. */
+void scheduler_reap(const char *name) {
+    uint32_t flags = irq_save();
+    for (uint32_t i = 1; i < MAX_THREADS; i++)
+        if (threads[i].state == THREAD_TERMINATED && strcmp(threads[i].name, name) == 0)
+            threads[i].state = THREAD_UNUSED;
+    irq_restore(flags);
+}
 
 /* Disiapkan untuk mutex/semaphore nanti. */
 void thread_block(void) {
