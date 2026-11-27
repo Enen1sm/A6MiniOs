@@ -55,13 +55,15 @@ uint32_t scheduler_get_quantum(void);
 uint32_t scheduler_total_switches(void);
 uint32_t scheduler_active_threads(void);  /* thread NEW/READY/RUNNING/WAITING (dipakai "pet") */
 uint32_t thread_current_id(void);   /* id thread yang sedang jalan (dipakai mutex) */
+uint32_t thread_current_cpu_ticks(void);  /* tick CPU yang sudah dipakai thread yang sedang jalan */
 void     scheduler_dump(void);            /* untuk perintah "ps" */
+void     scheduler_reap(const char *name); /* hapus catatan thread TERMINATED bernama itu */
 
 void     timer_init(uint32_t hz);
 uint32_t timer_ticks(void);
 void     timer_irq_handler(void);
 
-void     sched_demo_start(void);          /* untuk perintah "schedtest" */
+void     sched_demo_run(void);            /* untuk perintah "schedtest" */
 
 /* Assembly (switch.asm) */
 extern void switch_context(uint32_t *old_esp, uint32_t new_esp);
