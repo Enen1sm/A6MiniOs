@@ -116,7 +116,7 @@ static const cmd_t cmds[] = {
     { "role",    "ganti/lihat role aktif: role [admin|user]", cmd_role },
     { "ps",        "daftar thread dan statusnya", cmd_ps },
     { "quantum",   "lihat/ubah quantum: quantum [tick]", cmd_quantum },
-    { "schedtest", "jalankan 2 thread demo Round Robin", cmd_schedtest },
+    { "schedtest", "demo Round Robin 2 thread (pakai quantum saat ini)", cmd_schedtest },
     {"mem",        "memori heap (mem test, mem map)", cmd_mem },
     { "pet",       "hewan peliharaan di status bar (pet [feed|status|stop])", cmd_pet },
     { "deadlock",  "demo deadlock (deadlock demo | deadlock fix)", cmd_deadlock },
@@ -248,8 +248,7 @@ static void cmd_quantum(int argc, char **argv) {
 }
 static void cmd_schedtest(int argc, char **argv) {
     (void)argc; (void)argv;
-    sched_demo_start();
-    kprintf("Thread task_A dan task_B dibuat. Ketik 'ps' untuk melihat status.\n");
+    sched_demo_run();
 }
 
 static void cmd_pet(int argc, char **argv) {
